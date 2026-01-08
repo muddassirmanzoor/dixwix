@@ -1,0 +1,8 @@
+.idea
+.git
+.env
+.gitattributes
+.env.example
+/public/
+/public/*
+

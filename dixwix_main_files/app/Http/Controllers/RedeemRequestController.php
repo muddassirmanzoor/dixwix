@@ -1,0 +1,312 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Mail\MailService;
+use App\Mail\RedeemRewardMail;
+use App\Models\Point;
+use App\Models\RewardTransaction;
+use App\Models\User;
+use App\Models\Setting;
+use App\Models\Commission;
+use App\Notifications\GeneralNotification;
+use App\Services\StripeService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
+use App\Services\GiftoGramService;
+use Stripe\Exception\ApiErrorException;
+use Stripe\Stripe;
+use Stripe\Charge;
+use Illuminate\Support\Facades\Auth;
+
+class RedeemRequestController extends Controller
+{
+    protected $stripeService;
+    protected $giftoGramService;
+
+    public function __construct(StripeService $stripeService, GiftoGramService $giftoGramService)
+    {
+        $this->stripeService = $stripeService;
+        $this->giftoGramService = $giftoGramService;
+    }
+
+    public function index()
+    {
+        $data['title'] = 'Withdraw Request';
+        $data['template'] = 'admin.reward.transaction-list';
+        $transactions = RewardTransaction::orderBy('id', 'desc')->get();
+
+        return view('with_login_common', compact('data', 'transactions'));
+    }
+
+    public function WithdrawRequests()
+    {
+        $data['title'] = 'Withdraw Requests';
+        $data['template'] = 'admin.reward.my-transaction-list';
+        $transactions = RewardTransaction::where("user_id", Auth::user()->id)->orderBy('id', 'desc')->get();
+
+        return view('with_login_common', compact('data', 'transactions'));
+    }
+
+    public function GiftoCampaign()
+    {
+        $data['title'] = 'Gifto Campaign';
+        $data['template'] = 'admin.reward.gifto-list';
+        $transactions = RewardTransaction::orderBy('created_at', 'desc')->get();
+        $campaigns = ($this->giftoGramService->getCampaigns())["data"]["data"];
+        $funds = ($this->giftoGramService->getFunding())["data"]["data"]["credit_available"];
+        $points = (($this->giftoGramService->getFunding())["data"]["data"]["credit_available"]) * 100;
+
+        return view('with_login_common', compact('data', 'transactions', 'campaigns', 'funds', 'points'));
+    }
+
+    public function edit($id)
+    {
+        $transaction = RewardTransaction::findOrFail($id);
+        $data['title'] = 'Edit Redeem Request';
+        $data['template'] = 'admin.reward.edit-redeem-request';
+
+        return view('with_login_common', compact('data', 'transaction'));
+    }
+
+    public function userEdit($id)
+    {
+        $transaction = RewardTransaction::findOrFail($id);
+        $data['title'] = 'Edit Redeem Request';
+        $data['template'] = 'admin.reward.edit-redeem-request-user';
+
+        return view('with_login_common', compact('data', 'transaction'));
+    }
+
+    public function Giftoedit($id)
+    {
+        $transaction = RewardTransaction::findOrFail($id);
+        $data['title'] = 'Edit Redeem Request';
+        $data['template'] = 'admin.reward.edit-redeem-request';
+
+        return view('with_login_common', compact('data', 'transaction'));
+    }
+
+    public function ChangeGiftoStatus($id)
+    {
+        try {
+
+            //            $transaction = RewardTransaction::findOrFail($id);
+            $data['title'] = 'Change Campaign Status';
+            $data['template'] = 'admin.reward.edit-redeem-request';
+
+            Setting::updateOrCreate(
+                ['name' => "gifto_gram_uuid"],
+                ['value' => $id]
+            );
+
+            $compaingnName = ($this->giftoGramService->getCampaignById($id))["data"]["data"]["name"];
+
+            return redirect()->back()->with('success', "$compaingnName is now activated!");
+
+        } catch (ApiErrorException $e) {
+            return back()->with('error', 'Stripe error: ' . $e->getMessage());
+        }
+    }
+
+    public function update(Request $request, $id)
+    {
+        
+        $transaction = RewardTransaction::find($id);
+
+        $request->validate([
+            'status' => 'required|in:0,1,2',
+        ]);
+        
+
+        //        $user = $transaction->user;
+        $user =  User::find($transaction->user_id);
+        $admin =  User::find(1);
+        $commission = Commission::first()->commission;
+        $admin_commission = ($request->coins * $commission )/ 100;
+          
+        $paymentMethod = $user->paymentMethods()->where('default', true)->first();
+         
+      
+        if (!$paymentMethod && $request->status == RewardTransaction::APPROVED) {
+            return back()->with('error', "User has not set a default payment method. Please set the default payment method before approving the request.");
+        }
+        try {
+
+            $transaction->status = $request->status;
+            $transaction->approved_by = auth()->user()->id;
+            $transaction->approved_at = now();
+            $transaction->status = $request->status;
+         //   $this->stripeService->createCustomer($admin);
+            if($request->status == RewardTransaction::APPROVED){
+              $user_points = $user->reward_balance - $request->coins;
+             // $transaction->coins -= $admin_commission;
+              $transaction->amount -=  $admin_commission/100;
+              $transaction->system_fee = $admin_commission/100;
+              $admin_points = $admin->reward_balance + $admin_commission; 
+              $admin->reward_balance += $admin_commission;
+              $admin->save();
+              
+                $description = " Redeem Request Award. Your reward points have been transferred.";
+                $paymentResponse = $this->stripeService->redeemPoints($user,$transaction->coins,$commission, $paymentMethod, $description, []);
+                // $chargeId = $paymentResponse->latest_charge;
+
+              //     $receiptUrl = $this->stripeService->getReceipt($chargeId);
+             // $customer_balance = $this->stripeService->getCustomerBalance('cus_T9b60CBJLUvdaW');
+             // dd($customer_balance);
+                $admindescription = "Admin Redeem Commission points have been transferred";
+             //   $adminpaymentMethod = $admin->paymentMethods()->where('default', true)->first();
+              //  $adminpaymentResponse = $this->stripeService->adminredeemPoints($admin,$admin_commission, $adminpaymentMethod, $admindescription, []);
+               // dd($adminpaymentResponse);
+                                //     dd($request->status);
+
+                Point::create([
+                    'user_id' => $user->id,
+                    'type' => 'debit',
+                    'points' => ($transaction->coins) - $admin_commission,
+                    'system_fee' => $admin_commission/100,
+                    'data' => $paymentResponse,
+                    'amount' => $transaction->amount,
+                    'description' => $description,
+                    'trans_type' => Point::TRANS_TYPE_REWARD,
+                ]);
+              Point::create([
+                    'user_id' => $admin->id,
+                    'through_user_id' => $user->id,
+                    'type' => 'credit',
+                    'points' => $admin_commission,
+                    'data' => 'Admin commission',
+                    'amount' => $admin_commission/100,
+                    'total_coins'=> $transaction->coins,
+                    'description' => $admindescription,
+                    'trans_type' => Point::TRANS_TYPE_REWARD,
+                ]);
+              
+
+            }
+
+            $transaction->save();
+            $this->handleRedeemNotification($request->status, $user, $transaction);
+             
+            
+            return redirect()->back()->with('success', 'Request updated successfully!');
+           return redirect()->back()->with('success',$paymentResponse);
+        } catch (ApiErrorException $e) {
+            return back()->with('error', 'Stripe error: ' . $e->getMessage());
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to switch plan: ' . $e->getMessage());
+        }
+    }
+
+    public function userUpdate(Request $request, $id)
+    {
+        $transaction = RewardTransaction::find($id);
+
+        $request->validate([
+            'coins' => 'required',
+            'price' => 'required',
+        ]);
+
+        try {
+
+            $transaction->coins = $request->coins;
+            $transaction->amount = $request->price;
+
+            $transaction->save();
+
+            return redirect()->back()->with('success', 'Request updated successfully!');
+
+        } catch (ApiErrorException $e) {
+            return back()->with('error', 'Stripe error: ' . $e->getMessage());
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to switch plan: ' . $e->getMessage());
+        }
+    }
+
+    protected function handleRedeemNotification($status, $user, $transaction)
+    {
+        $recipientEmail = $user->email;
+        $points = $transaction->coins;
+        $emailData = [];
+        $notificationData = [];
+
+        if ($status == RewardTransaction::APPROVED) { // Approved
+
+            $notificationData = [
+                'title'   => 'Redeem Request Approved 🎉',
+                'type'    => 'redeem_approved',
+                'subject' => 'Your Redeem Request Approved',
+                'message' => 'Congratulations! Your redeem request of ' . $points . ' coins has been approved successfully.',
+                'user_id' => $user->id,
+                'url'     => route('my-rewards'),
+                'action'  => 'View Rewards',
+            ];
+
+            $emailData = [
+                'name' => $user->name,
+                'subject' => 'Congratulations! Your Redeem Request Approved 🎉',
+                'view' => 'redeem-request-accept',
+                'status' => RewardTransaction::$STATUS_TEXT[1],
+                'coins' => $points,
+            ];
+
+        } elseif ($status ==  RewardTransaction::REJECTED) { // Rejected
+
+            $emailData = [
+                'name' => $user->name,
+                'subject' => 'Redeem Request Rejected ❌',
+                'view' => 'redeem-request-reject',
+                'status' => RewardTransaction::$STATUS_TEXT[2],
+                'coins' => $points,
+            ];
+
+            $notificationData = [
+                'title'   => 'Redeem Request Rejected ❌',
+                'type'    => 'redeem_rejected',
+                'subject' => 'Your Redeem Request Rejected',
+                'message' => 'Sorry! Your redeem request of ' . $points . ' coins has been rejected.',
+                'user_id' => $user->id,
+                'url'     => url('/'),
+                'action'  => 'Contact Support',
+            ];
+        }
+
+        if (!empty($notificationData)) {
+            $user->notify(new GeneralNotification($notificationData));
+        }
+
+        if (!empty($emailData)) {
+            $this->sendRedeemRewardMail($user,$emailData);
+        }
+    }
+
+    private function sendRedeemRewardMail($user, $mailData)
+    {
+        // Prepare email data
+        $data = [
+            'userName' => $user->name,
+            'points'   => $mailData['coins'],
+            'status'  =>  $mailData['status'],
+            'subject'  => $mailData['subject'],
+            'currency'  => 'USD',
+            'view'     => $mailData['view'],
+        ];
+
+        // Send email
+        Mail::to($user->email)->send(new RedeemRewardMail($data));
+       
+    }
+
+    public function destroy(string $id)
+    {
+        try {
+            $transaction = RewardTransaction::findOrFail($id);
+            $transaction->delete();
+
+            return redirect()->back()->with('success', 'withdrow deleted successfully.');
+        } catch (\Exception $e) {
+            Log::error('Error deleting withdrow: '.$e->getMessage());
+            return response()->json(['error' => 'Failed to delete withdrow.'], 500);
+        }
+    }
+}

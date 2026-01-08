@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="{{ asset('assets/media/logo.png') }}" type="image/x-icon">
+    <title>Login - {{ env('APP_NAME') }}</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+
+    <link href="{{ asset('css/bootstrap.min.css') }}" rel="stylesheet">
+
+    <link rel="stylesheet" href="{{ url('assets/css/style.css') }}">
+    <script src="{{ url('assets/js/sweetalert2.min.js') }}"></script>
+    <link rel="stylesheet" href="{{ url('assets/css/sweetalert2.min.css') }}">
+    <!-- Include CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.19/css/intlTelInput.css" />
+
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    <script src="https://www.google.com/recaptcha/api.js?onload=onloadCallback&render=explicit" async defer></script>
+
+
+    @if (env('APP_ENV') !== 'local')
+        <script src="https://www.google.com/recaptcha/api.js?onload=renderCaptchaFn&render=explicit&hl=en" async defer></script>
+    @endif
+
+    <link rel="stylesheet" href="{{ url('assets/css/style.css') }}">
+
+    @if (env('APP_ENV') !== 'local')
+        <script>
+            var RECAPTCHA_SITE_KEY = '{{ env('RECAPTCHA_SITE_KEY') }}'
+        </script>
+    @endif
+
+    <style>
+        .navbar-collapse {
+            /*background-color: white; !* White background for mobile menu *!*/
+            z-index: 999;
+        }
+
+        @media (max-width: 991.98px) {
+            .navbar-light .navbar-collapse {
+                margin-top: 0px;
+            }
+        }
+        @media (max-width: 991px) {
+            .navbar-collapse {
+                position: absolute;
+                top: 100%;
+                left: 0;
+                width: 100%;
+                background-color: white; /* Avoid background image in mobile */
+                padding: 20px;
+                box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+            }
+        }
+        .btn-check:focus+.btn-primary, .btn-primary:focus{
+            box-shadow: none !important;
+        }
+
+        .btn-check:focus+.btn-outline-primary, .btn-outline-primary:focus{
+            box-shadow: none !important;
+        }
+        .btn-primary:hover, .btn-primary:focus {
+            color: var(--orange-01);
+        }
+        .btn-primary{
+            color: var(--white);
+        }
+        .form_wrapper h2 {
+            color: var(--white);
+        }
+        .form_wrapper h3 {
+            color: var(--white);
+        }
+        .form_wrapper .checkbox .form-check {
+            margin-bottom: 0;
+            padding-left: 0px;
+            min-height:0.5rem;
+        }
+        .form-control {
+            height: calc(1.5em + .75rem + 2px);
+            border-radius: .25rem;
+        }
+        .form_wrapper .fieldset input{
+            color: #495057 !important;
+        }
+        .fieldset {
+            position: relative;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #797979
+        }
+
+        .text-danger {
+            color: #dc3545;
+            font-size: 0.875em;
+            margin-top: 5px;
+        }
+
+        #password_error {
+            font-size: 11px;
+            margin-top: 4%;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container-fluid container_bg p-0">
+        <div id="header">
+            @include('common.wo_login.header')
+        </div>
+        <style>
+            a.btn.btn-primary.text-white.py-2.px-4.flex-wrap.flex-sm-shrink-0.btncss:hover {
+                color: white !important;
+            }
+
+            a.btn.btn-primary.text-white.py-2.px-4.flex-wrap.flex-sm-shrink-0.btncss.transp:hover {
+                background: white !important;
+            }
+
+        </style>
+        <div id="content">
+            <div class="form_container position-relative">
+                <div class="success_msg my-2" id="alert-success" style="position: absolute;color: green;font-size: large;text-align: center;top: 10px;left: 30%;transform: translateX(-50%);"></div>
+                @if (isset($retdata['success_message']))
+                <div class="success_msg" style="position: absolute;color: green;font-size: large;text-align: center;top: 10px;left: 30%;transform: translateX(-50%);">{{ $retdata['success_message'] }}</div>
+                @elseif (isset($retdata['err_message']))
+                <span id="error-message" class="error_msg" style="position: absolute;text-align: center;top: 10px;left: 30%;transform: translateX(-50%);">*{{ $retdata['err_message'] }}</span>
+                @endif
+                <div class="form_image">
+                    <img src="assets/media/account.png" alt="Image Description">
+                </div>
+                <div class="form_inner">
+                    <div class="form_wrapper">
+                        <div class="d-flex mb-2 justify-content-center flex-column">
+                            <h2 class="text-center">Login With</h2>
+                            <div class="social-icons d-flex justify-content-center">
+                                {{-- <a href="#"><img src="assets/media/facebook.png" alt="Facebook"></a> --}}
+                                <a href="{{url('google-login')}}"><img src="assets/media/google.png" alt="Google"></a>
+                                {{-- <a href="#"><img src="assets/media/apple.png" alt="Apple"></a> --}}
+                            </div>
+                            <div class="divider">
+                                <hr>
+                                <span>or</span>
+
+                                <hr>
+                            </div>
+
+                        </div>
+                        <form name="login-form" id="login-form" method="post">
+                            @csrf
+                            <h2>Login to your account</h2>
+                            <div class="fieldset">
+                                <img src="assets/media/email.png">
+                                <input type="email" id="signin_email" name="email" class="form-control" placeholder="Email" />
+                            </div>
+                            <div class="fieldset">
+                                <img src="assets/media/password.png">
+{{--                                <input type="password" id="signin_password" name="password" class="form-control" placeholder="Password" />--}}
+                                <input type="password" id="signin_password" name="password" class="form-control" placeholder="Password">
+                                <span id="togglePassword" class="toggle-password">
+                                    <i class="fa fa-eye"></i>
+                                </span>
+                            </div>
+                            <small id="password_error" style="color: red; display: none; margin: 5% 0;">
+                                Password must be at least 6 characters long, include 1 capital letter, 1 number, and 1 special character.
+                            </small>
+                            <div class="remember_wrap">
+                                <span class="checkbox">
+                                    <input class="form-check input me-2" type="checkbox" value="1" id="remember_me" name="remember_me" />
+                                    <label class="form-check label" for="remember_me">Remember Me</label>
+                                </span>
+                                <a href="{{ url('forgot-password') }}">Forgot Password?</a>
+                            </div>
+                            <!-- Google reCAPTCHA -->
+                            <div class="g-recaptcha" data-sitekey="{{ env('RECAPTCHA_SITE_KEY') }}" data-expired-callback="recaptchaExpired"></div>
+                            <div id="captcha_error_message" class="text-danger"></div>
+                            <div id="client_error_message" style="text-align: center;top: 30px;"></div>
+                            
+                            <button type="submit" id="login_btn" class="btn btn-primary">Submit</button>
+                        </form>
+                        <h3>Don't have an account?</h3>
+                        <a href="{{ route('signup') }}" class="btn btn-outline-primary">Create Account</a>
+                        {{-- <div class="divider">
+                            <hr>
+                            <span>or</span>
+                            <hr>
+                        </div>
+                        <h2>Login With</h2>
+                        <div class="social-icons">
+                            <a href="#"><img src="assets/media/facebook.png" alt="Facebook"></a>
+                            <a href="{{url('google-login')}}"><img src="assets/media/google.png" alt="Google"></a>
+                        <a href="#"><img src="assets/media/apple.png" alt="Apple"></a>
+                    </div> --}}
+
+                    <div id="ajaxLoader" style="display: none; position: fixed; top: 0; left: 0;
+                        width: 100%; height: 100%; background: rgba(255,255,255,0.7);
+                        z-index: 9999; justify-content: center; align-items: center;">
+                        <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: 100%;">
+                            <img src="https://i.gifer.com/YCZH.gif" alt="Loading..." style="width: 220px;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="footer"></div>
+    </div>
+
+    <!-- Bootstrap JS and jQuery CDN -->
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+
+{{--    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>--}}
+{{--    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>--}}
+{{--    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>--}}
+
+{{--    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>--}}
+
+    <!-- Your JS File -->
+{{--    <script src="{{ url('assets/js/scripts4.js') }}"></script>--}}
+
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+
+    <script>
+
+        function recaptchaExpired() {
+            document.getElementById('captcha_error_message').innerText = 'The reCAPTCHA has expired. Please complete it again.';
+        }
+
+        $(document).ready(function() {
+
+            const errorMessageElement = $('#error-message');
+
+            if (errorMessageElement.length) {
+
+                const currentUrl = window.location.href;
+                const url = new URL(currentUrl);
+                url.pathname = '/login';
+                url.search = '';
+                window.history.replaceState({}, '', url.href);
+
+                setTimeout(function() {
+                    errorMessageElement.remove();
+                }, 5000);
+            }
+
+            $('#login-form').on('submit', function(event) {
+    event.preventDefault();
+
+    var recaptchaResponse = grecaptcha.getResponse();
+    if (!recaptchaResponse) {
+        $('#captcha_error_message').text('Please verify that you are not a robot.');
+        return;
+    } else {
+        $('#captcha_error_message').text('');
+    }
+
+    let email = $("#signin_email").val();
+    let password = $("#signin_password").val();
+    let rememberMe = $('#remember_me').is(':checked') ? 1 : 0;
+
+    let email_regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email_regex.test(email)) {
+        $("#client_error_message").html("*Invalid Email Address");
+        return;
+    }
+
+    $('#ajaxLoader').show();
+
+    $.ajax({
+        url: "{{ url('login-user') }}",
+        method: "POST",
+        data: {
+            _token: "{{ csrf_token() }}",
+            email: email,
+            password: password,
+            remember_me: rememberMe,
+            'g-recaptcha-response': recaptchaResponse
+        },
+        dataType: 'json',
+        success: function(response) {
+            // if (response.success) {
+            //     window.location.href = response.redirect_url;
+            // } else {
+            //     $('#client_error_message').html(response.message).addClass('text-danger');
+            // }
+            if (response.success) {
+                setTimeout(function () {
+                    window.location.href = response.redirect_url;
+                }, 200); // Adjust delay as needed
+            } else {
+                $('#client_error_message').html(response.message).addClass('text-danger');
+                $('#ajaxLoader').hide(); // ❌ Hide loader on error
+            }
+        },
+        error: function(xhr) {
+            var errors = xhr.responseJSON.errors;
+            if (errors) {
+                var errorMsg = '';
+                $.each(errors, function(key, value) {
+                    errorMsg += '<p>' + value[0] + '</p>';
+                });
+                $('#client_error_message').html(errorMsg).addClass('text-danger');
+            }
+        }
+    });
+});
+            
+        });
+
+        document.getElementById("togglePassword").addEventListener("click", function () {
+            const passwordInput = document.getElementById("signin_password");
+            const type = passwordInput.getAttribute("type") === "password" ? "text" : "password";
+            passwordInput.setAttribute("type", type);
+            this.querySelector("i").classList.toggle("fa-eye");
+            this.querySelector("i").classList.toggle("fa-eye-slash");
+        });
+
+        // Password validation logic
+        document.getElementById("signin_password").addEventListener("input", function () {
+            const password = this.value;
+            const errorMsg = document.getElementById("password_error");
+
+            // Regex: At least 6 characters, 1 uppercase letter, 1 number, and 1 special character
+            const passwordPattern = /^(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{6,}$/;
+
+            if (passwordPattern.test(password)) {
+                errorMsg.style.display = "none"; // Hide error if valid
+            } else {
+                errorMsg.style.display = "block"; // Show error if invalid
+            }
+        });
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+[90m= [39m[34;4mApp\Models\StripeInvoiceSchedule[39;24m {#6607
+    [34mid[39m: [35m2[39m,
+    [34mcreated_by[39m: [35m1[39m,
+    [34mrecurring_days[39m: [35m10[39m,
+    [34mrun_at[39m: "[32m2025-12-28 06:48:19[39m",
+    [34mnext_run_at[39m: "[32m2025-12-28 06:48:19[39m",
+    [34mlast_run_at[39m: [36mnull[39m,
+    [34mrange_from[39m: [36mnull[39m,
+    [34mrange_to[39m: [36mnull[39m,
+    [34mstatus[39m: "[32mactive[39m",
+    [34mis_active[39m: [35m1[39m,
+    [34mstripe_behavior[39m: "[32mfinalize_and_send[39m",
+    [34mresult_summary[39m: [36mnull[39m,
+    [34merror[39m: [36mnull[39m,
+    [34mcreated_at[39m: "[32m2025-12-18 06:48:19[39m",
+    [34mupdated_at[39m: "[32m2025-12-18 06:48:19[39m",
+  }
+
