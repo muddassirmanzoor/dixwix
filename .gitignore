@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Environment files
+.env
+.env.backup
+.env.production
+
+# Logs
+*.log
+logs/
+schedule_debug.log
+
+# Temporary files
+tmp/
+*.tmp
+
+# Backups
+backups/
+bak/
+*.tgz
+*.zip
+archive.zip
+
+# IDE
+.idea/
+.vscode/
+.vscode-server/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Copy files
+_copy.*
+
+# Laravel specific (if any)
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+bootstrap/cache/*
