@@ -83,6 +83,17 @@
                     @forelse($schedules as $s)
                     @php
                         $isParent = is_null($s->parent_schedule_id);
+                        // For the parent row, show "current" schedule state based on the active child run (if any).
+                        $activeSchedule = ($s->is_active && $s->status === 'active') ? $s : ($s->activeRun ?? null);
+                        $displayStatus = $activeSchedule ? 'active' : $s->status;
+                        $displayNextRunAt = $activeSchedule?->next_run_at ?? $s->next_run_at;
+                        // Prefer the latest log if it's newer than the stored parent last_run_at (parent can be stale historically).
+                        $displayLastRunAt = $s->last_run_at;
+                        if ($s->latestLog?->run_at && (!$displayLastRunAt || $s->latestLog->run_at->gt($displayLastRunAt))) {
+                            $displayLastRunAt = $s->latestLog->run_at;
+                        }
+                        $displayError = $activeSchedule?->error ?? $s->error;
+                        $cancelTargetId = $activeSchedule?->id ?? null;
                     @endphp
                     <tr class="{{ $s->trashed() ? 'table-secondary' : '' }}">
                         <td>
@@ -100,16 +111,16 @@
                             @endif
                         </td>
                         <td>
-                            <span class="badge bg-{{ $s->status === 'active' ? 'success' : ($s->status === 'completed' ? 'info' : ($s->status === 'running' ? 'warning' : 'secondary')) }}">
-                                {{ ucfirst($s->status) }}
+                            <span class="badge bg-{{ $displayStatus === 'active' ? 'success' : ($displayStatus === 'completed' ? 'info' : ($displayStatus === 'running' ? 'warning' : 'secondary')) }}">
+                                {{ ucfirst($displayStatus) }}
                             </span>
                         </td>
                         <td>{{ ($s->recurring_days ?? 'N/A') . ($s->recurring_days ? ' days' : '') }}</td>
-                        <td class="nowrap">{{ $s->next_run_at ? $s->next_run_at->format('Y-m-d H:i') : 'N/A' }}</td>
-                        <td class="nowrap">{{ $s->last_run_at ? $s->last_run_at->format('Y-m-d H:i') : 'Never' }}</td>
+                        <td class="nowrap">{{ $displayNextRunAt ? $displayNextRunAt->format('Y-m-d H:i') : 'N/A' }}</td>
+                        <td class="nowrap">{{ $displayLastRunAt ? $displayLastRunAt->format('Y-m-d H:i') : 'Never' }}</td>
                         <td class="nowrap">
                             @if($isParent)
-                                {{ $s->next_run_at ? $s->next_run_at->format('Y-m-d') : 'N/A' }}
+                                {{ $displayNextRunAt ? $displayNextRunAt->format('Y-m-d') : 'N/A' }}
                             @else
                                 {{ $s->run_at ? $s->run_at->format('Y-m-d') : 'N/A' }}
                             @endif
@@ -122,7 +133,7 @@
                                 failed={{ $s->result_summary['failed'] ?? 0 }}
                             @endif
                         </td>
-                        <td>{{ $s->error }}</td>
+                        <td>{{ $displayError }}</td>
                         <td class="nowrap actions-cell">
                             <a href="{{ route('stripe-invoice-scheduler.show', ['id' => $s->id]) }}" class="btn btn-sm btn-primary mb-1">View</a>
 
@@ -137,8 +148,8 @@
                                     <button type="submit" class="btn btn-sm btn-danger mb-1" onclick="return confirm('Permanently delete this schedule? This cannot be undone!')">Force Delete</button>
                                 </form>
                             @else
-                                @if($s->is_active && $s->status === 'active')
-                                    <form method="POST" action="{{ route('stripe-invoice-scheduler.cancel', ['id' => $s->id]) }}" style="display: inline-block;">
+                                @if($cancelTargetId)
+                                    <form method="POST" action="{{ route('stripe-invoice-scheduler.cancel', ['id' => $cancelTargetId]) }}" style="display: inline-block;">
                                         @csrf
                                         <button type="submit" class="btn btn-sm btn-warning mb-1" onclick="return confirm('Deactivate this recurring schedule?')">Deactivate</button>
                                     </form>

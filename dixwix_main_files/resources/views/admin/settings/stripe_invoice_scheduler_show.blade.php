@@ -20,11 +20,22 @@
 <div class="card mt-3">
     <div class="card-body">
         <h5>Schedule Summary</h5>
-        <p class="mb-1"><strong>Status:</strong> {{ ucfirst($schedule->status) }} @if($isParentSchedule && !$schedule->is_active) (inactive) @endif</p>
+        @php
+            $summaryActiveSchedule = $isParentSchedule
+                ? (($activeSchedule ?? null) ?: (($schedule->is_active && $schedule->status === 'active') ? $schedule : null))
+                : null;
+            $summaryStatus = $summaryActiveSchedule ? 'active' : $schedule->status;
+            $summaryNextRunAt = $summaryActiveSchedule?->next_run_at ?? $schedule->next_run_at;
+            $summaryLastRunAt = $schedule->last_run_at;
+            if ($schedule->latestLog?->run_at && (!$summaryLastRunAt || $schedule->latestLog->run_at->gt($summaryLastRunAt))) {
+                $summaryLastRunAt = $schedule->latestLog->run_at;
+            }
+        @endphp
+        <p class="mb-1"><strong>Status:</strong> {{ ucfirst($summaryStatus) }} @if($isParentSchedule && !$summaryActiveSchedule) (inactive) @endif</p>
         @if($isParentSchedule)
             <p class="mb-1"><strong>Recurring Days:</strong> {{ $schedule->recurring_days ?? 'N/A' }} days</p>
-            <p class="mb-1"><strong>Last Run:</strong> {{ $schedule->last_run_at ?? 'Never' }}</p>
-            <p class="mb-1"><strong>Next Run:</strong> {{ $schedule->next_run_at ?? 'N/A' }}</p>
+            <p class="mb-1"><strong>Last Run:</strong> {{ $summaryLastRunAt ? $summaryLastRunAt->format('Y-m-d H:i:s') : 'Never' }}</p>
+            <p class="mb-1"><strong>Next Run:</strong> {{ $summaryNextRunAt ? $summaryNextRunAt->format('Y-m-d H:i:s') : 'N/A' }}</p>
         @else
             <p class="mb-1"><strong>Run At:</strong> {{ $schedule->run_at ? $schedule->run_at->format('Y-m-d H:i:s') : 'N/A' }}</p>
             <p class="mb-1"><strong>Date Range:</strong> 

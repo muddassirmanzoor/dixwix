@@ -33,6 +33,15 @@ class RunStripeInvoiceSchedules extends Command
             $schedules = StripeInvoiceSchedule::where('is_active', true)
                 ->where('status', 'active')
                 ->where('next_run_at', '<=', $now)
+                // Safety: don't run child schedules whose parent was soft-deleted.
+                // Soft deletes do NOT cascade, so we must prevent orphaned active children from running.
+                ->where(function ($q) {
+                    $q->whereNull('parent_schedule_id')
+                        ->orWhereIn(
+                            'parent_schedule_id',
+                            StripeInvoiceSchedule::query()->select('id')->whereNull('deleted_at')
+                        );
+                })
                 ->orderBy('next_run_at')
                 ->limit(5)
                 ->get();
@@ -293,6 +302,16 @@ class RunStripeInvoiceSchedules extends Command
                 'is_active' => true, // Active for cron to pick up
                 'stripe_behavior' => $schedule->stripe_behavior ?? 'finalize_and_send',
             ]);
+
+            // Keep the original parent row up-to-date for UI reporting (even though it won't run again).
+            // This fixes cases where parent schedules show "Last Run: Never" despite child runs existing.
+            if ($originalParent) {
+                $originalParent->update([
+                    'last_run_at' => $now,
+                    'next_run_at' => $nextRunAt,
+                    'error' => null,
+                ]);
+            }
 
             // Update log entry with completion
             if (isset($log)) {

@@ -25,9 +25,11 @@ class StripeInvoiceScheduleController extends Controller
             'template' => 'admin.settings.stripe_invoice_scheduler',
         ];
 
-        // Show all schedules (parent + run schedules)
+        // Show only parent schedules (root recurring schedules).
+        // Child "run schedules" are visible from the parent detail page.
         $query = StripeInvoiceSchedule::withTrashed()
-            ->with(['parent', 'runs'])
+            ->whereNull('parent_schedule_id')
+            ->with(['activeRun', 'latestLog'])
             ->orderByDesc('id');
         
         // Filter: show deleted or active
@@ -37,7 +39,7 @@ class StripeInvoiceScheduleController extends Controller
             $query->whereNull('deleted_at');
         }
         
-        // Show all schedules (both parent and run schedules)
+        // Show recent parent schedules
         $schedules = $query->limit(100)->get();
 
         return view('with_login_common', compact('data', 'schedules'));
@@ -48,7 +50,7 @@ class StripeInvoiceScheduleController extends Controller
         $this->ensureSuperAdmin();
 
         $schedule = StripeInvoiceSchedule::withTrashed()
-            ->with(['items.user', 'parent', 'runs'])
+            ->with(['items.user', 'parent', 'runs', 'activeRun', 'latestLog'])
             ->findOrFail($id);
 
         $data = [
@@ -58,12 +60,14 @@ class StripeInvoiceScheduleController extends Controller
 
         // Check if this is a parent schedule (recurring) or a run schedule (single execution)
         $isParentSchedule = is_null($schedule->parent_schedule_id);
+        $activeSchedule = null;
         
         if ($isParentSchedule) {
             // Parent schedule: show preview for next run (if active)
             // Don't show logs - instead show the run schedules that were created
             $logs = collect(); // Don't show old logs
-            $previewData = $this->getNextRunPreview($schedule);
+            $activeSchedule = ($schedule->is_active && $schedule->status === 'active') ? $schedule : ($schedule->activeRun ?? null);
+            $previewData = $activeSchedule ? $this->getNextRunPreview($activeSchedule) : null;
             
             // Get all run schedules (child schedules) for this parent
             $runSchedules = $schedule->runs()->orderByDesc('run_at')->get();
@@ -118,7 +122,7 @@ class StripeInvoiceScheduleController extends Controller
             $entriesByUser = $entries->groupBy('user_id');
         }
 
-        return view('with_login_common', compact('data', 'schedule', 'logs', 'previewData', 'entriesByUser', 'isParentSchedule', 'runSchedules'));
+        return view('with_login_common', compact('data', 'schedule', 'logs', 'previewData', 'entriesByUser', 'isParentSchedule', 'runSchedules', 'activeSchedule'));
     }
 
     private function getSchedulePreview(StripeInvoiceSchedule $schedule)
@@ -248,6 +252,19 @@ class StripeInvoiceScheduleController extends Controller
             return back()->with('success', 'Schedule permanently deleted.');
         }
         
+        // If deleting a parent schedule, also stop any active child run schedules.
+        // Soft deletes do not cascade, so without this orphaned active children can keep running via cron.
+        if (is_null($schedule->parent_schedule_id)) {
+            StripeInvoiceSchedule::where('parent_schedule_id', $schedule->id)
+                ->where('is_active', true)
+                ->where('status', 'active')
+                ->update([
+                    'is_active' => false,
+                    'status' => 'cancelled',
+                    'error' => 'Cancelled because parent schedule was deleted.',
+                ]);
+        }
+
         // If active, deactivate first, then soft delete
         if ($schedule->is_active && $schedule->status === 'active') {
             $schedule->update(['is_active' => false, 'status' => 'cancelled']);

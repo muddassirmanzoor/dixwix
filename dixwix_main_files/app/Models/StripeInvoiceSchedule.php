@@ -49,6 +49,11 @@ class StripeInvoiceSchedule extends Model
         return $this->hasMany(StripeInvoiceScheduleLog::class, 'schedule_id');
     }
 
+    public function latestLog()
+    {
+        return $this->hasOne(StripeInvoiceScheduleLog::class, 'schedule_id')->latestOfMany('run_at');
+    }
+
     public function parent()
     {
         return $this->belongsTo(StripeInvoiceSchedule::class, 'parent_schedule_id');
@@ -57,5 +62,14 @@ class StripeInvoiceSchedule extends Model
     public function runs()
     {
         return $this->hasMany(StripeInvoiceSchedule::class, 'parent_schedule_id')->orderByDesc('run_at');
+    }
+
+    public function activeRun()
+    {
+        // The currently-active "next run" schedule for this parent (if any).
+        return $this->hasOne(StripeInvoiceSchedule::class, 'parent_schedule_id')
+            ->where('status', 'active')
+            ->where('is_active', true)
+            ->orderBy('next_run_at');
     }
 }
