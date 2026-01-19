@@ -525,7 +525,6 @@
                         </div>
                     </div>
                     <br>
-                    @if(false)
                     <div class="row">
                         <div class="table-responsive">
                             <h2 class="bg-light text-center">Transfer Points History</h2>
@@ -562,7 +561,6 @@
                         </table>
                         </div>
                     </div>
-                    @endif
                 </div>
 
                 <!-- Purchase Points Tab -->
