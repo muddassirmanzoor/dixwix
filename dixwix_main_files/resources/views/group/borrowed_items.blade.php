@@ -5,7 +5,10 @@
     $archivedItems = [];
 
     foreach ($borrowedItems as $book) {
-        if (!empty($book['due_date']) && Carbon::parse($book['due_date'])->isPast()) {
+        // Archive ONLY after return status is complete (i.e. returned).
+        // Do NOT archive overdue items that are not yet returned.
+        $state = $book['state'] ?? null;
+        if ($state === 'returned') {
             $archivedItems[] = $book;
         } else {
             $activeItems[] = $book;
@@ -23,7 +26,7 @@
         </li>
         <li class="nav-item">
             <a class="nav-link" id="archive-tab" data-toggle="tab" href="#archive" role="tab"
-               aria-controls="archive" aria-selected="false">Archived (Due Date Passed)</a>
+               aria-controls="archive" aria-selected="false">Archived (Returned)</a>
         </li>
     </ul>
 
@@ -87,7 +90,16 @@
                             </td>
 
                             <!-- Due Date -->
-                            <td class="text-center">{{ $book['due_date'] ?? 'N/A' }}</td>
+                            @php
+                                $dueDate = $book['due_date'] ?? null;
+                                $isOverdue = !empty($dueDate) && Carbon::parse($dueDate)->isPast();
+                            @endphp
+                            <td class="text-center {{ $isOverdue ? 'text-danger' : '' }}">
+                                {{ $dueDate ?? 'N/A' }}
+                                @if($isOverdue)
+                                    <span class="badge badge-danger ml-2">Overdue</span>
+                                @endif
+                            </td>
 
                             <!-- Actions -->
                             <td class="text-center">
@@ -178,24 +190,11 @@
                             </td>
 
                             <!-- Due Date -->
-                            <td class="text-center text-danger">{{ $book['due_date'] ?? 'N/A' }}</td>
+                            <td class="text-center">{{ $book['due_date'] ?? 'N/A' }}</td>
 
                             <!-- Actions -->
                             <td class="text-center">
-                                @if ($book['state'] == 'return-request')
-                                    <span class="badge badge-warning px-4 py-2">Return Pending</span>
-                                @else
-                                    <a href="javascript:void(0)"
-                                       onclick="returnBook({{ $book->id }}, {{ $book->book->id }}, this, {{ $book->book->group->id ?? 0 }})"
-                                       title="Return"
-                                       class="btn btn-danger btn-sm">
-                                        <i class="fa fa-power-off" aria-hidden="true"></i>
-                                    </a>
-                                    <a href="javascript:void(0)" id="renewID-{!! $book['book']['id'] !!}" title="Renew"
-                                       data-book_id="{!! $book['book']['id'] !!}" class="btn btn-info btn-sm renewID">
-                                        <i class="fa fa-bell" aria-hidden="true"></i>
-                                    </a>
-                                @endif
+                                <span class="badge badge-success px-4 py-2">Returned</span>
                                 <a href="{{ route('reviews', $book['book']['id']) }}" title="Reviews"
                                    class="btn btn-warning btn-sm">
                                     Reviews
