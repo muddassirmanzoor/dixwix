@@ -445,7 +445,7 @@
                                         </select>
                                     </div>
                                     <div class="form-group mt-3">
-                                        <label for="user_points">Enter Points</label>
+                                        <label for="user_points">Enter Points (1 Point = $0.01)</label>
                                         <input type="number" id="user_points" class="form-control" min="0" placeholder="Enter points to assign" disabled />
                                     </div>
                                     <div class="form-group mt-3 text-right">
