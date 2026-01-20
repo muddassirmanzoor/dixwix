@@ -368,6 +368,10 @@ Route::group(['middleware' => ['auth']], function () {
 
         Route::post('/blog-post/bulk-delete', [BlogController::class, 'bulkDelete'])->name('blog-post.bulk-delete');
 
+        // Group deletion delay setting (default 90 days)
+        Route::get('/settings/group-delete-days', [AdminController::class, 'groupDeleteDays'])->name('settings.group-delete');
+        Route::post('/settings/group-delete-days', [AdminController::class, 'updateGroupDeleteDays'])->name('settings.group-delete.update');
+
     });
 
     Route::get('/make-barcode', [BookController::class, 'MakeBarcode'])->name("make-barcode");

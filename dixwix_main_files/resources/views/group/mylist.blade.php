@@ -29,6 +29,13 @@
                                 <?php if(Auth::user()->hasRole("admin") || $group["created_by"] == Auth::user()->id) { ?>
                                     <a href="<?= route('edit-group', ["id" => $group["id"]]) ?>" title="Edit Group"><img src="assets/media/edit-orange.png" alt="Edit Group"></a>
                                 <?php } ?>
+                                <?php if(Auth::user()->hasRole("admin")) { ?>
+                                    <a href="javascript:void(0)"
+                                       title="Delete Group"
+                                       onclick="showSwalMessageWithCallback('Confirmation','Are you sure you want to delete this group now?','question',function(){deleteGroup('{{ $group['id'] }}','{{ route('delete-group') }}')})">
+                                        <img src="assets/media/delete.png" alt="Delete Group">
+                                    </a>
+                                <?php } ?>
                             </div>
                         </div>
                         <div class="innerheader" style="display:none;">

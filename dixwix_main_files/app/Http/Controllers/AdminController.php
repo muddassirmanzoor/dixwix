@@ -715,6 +715,45 @@ class AdminController extends Controller
         return view('with_login_common', compact('data'));
     }
 
+    public function groupDeleteDays(Request $request)
+    {
+        $data['title'] = 'Group Delete Days';
+        $data['template'] = 'admin.settings.group_delete_days';
+        $data['script_file'] = 'add_item';
+
+        // Ensure the setting exists (default: 90)
+        $setting = Setting::where('name', 'group_delete_days')->first();
+        if (!$setting) {
+            $setting = Setting::create([
+                'name' => 'group_delete_days',
+                'value' => '90',
+                'type' => Setting::TYPE_NUMBER,
+            ]);
+        } elseif ((int) $setting->type !== Setting::TYPE_NUMBER) {
+            $setting->update(['type' => Setting::TYPE_NUMBER]);
+        }
+
+        $deleteDays = is_numeric($setting->value) ? (int) $setting->value : 90;
+
+        return view('with_login_common', compact('data', 'deleteDays', 'setting'));
+    }
+
+    public function updateGroupDeleteDays(Request $request)
+    {
+        $validated = $request->validate([
+            'group_delete_days' => 'required|integer|min:0|max:3650',
+        ]);
+
+        Setting::updateOrCreate(
+            ['name' => 'group_delete_days'],
+            ['value' => (string) $validated['group_delete_days'], 'type' => Setting::TYPE_NUMBER]
+        );
+
+        return redirect()
+            ->route('settings.group-delete')
+            ->with('success', 'Group delete days updated successfully.');
+    }
+
     public function runBackup()
     {
         try {

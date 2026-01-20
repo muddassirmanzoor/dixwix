@@ -16,9 +16,9 @@
         <tbody>
             @foreach($overdueItems as $item)
             <tr>
-                <td>{{ $item->book->name }}</td>
-                <td>{{ $item->reserver->name }}</td>
-                <td>{{ $item->book->group->title }}</td>
+                <td>{{ optional($item->book)->name ?? '-' }}</td>
+                <td>{{ optional($item->reserver)->name ?? '-' }}</td>
+                <td>{{ optional(optional($item->book)->group)->title ?? '-' }}</td>
                 <td>{{ $item->due_date }}</td>
                 <td class="text-right">{{ $item->reserved_at }}</td>
             </tr>

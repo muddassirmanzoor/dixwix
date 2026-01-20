@@ -44,6 +44,20 @@
                 "group_id": group_id
             },
             success: function(result) {
+                let payload = result;
+                try {
+                    if (typeof result === 'string') {
+                        payload = JSON.parse(result);
+                    }
+                } catch (e) {
+                    payload = null;
+                }
+
+                if (payload && payload.redirect_url) {
+                    window.location.href = payload.redirect_url;
+                    return;
+                }
+
                 window.location.reload();
             }
         });

@@ -119,9 +119,15 @@ class RentalController extends Controller
             'template' => 'admin.loan.overdue-rent-items',
         ];
 
-        $overdueItems = Entries::where('is_reserved', 1)
+        $overdueItems = Entries::query()
+            ->where('is_reserved', 1)
             ->whereNotNull('due_date')
-            ->where('due_date', '<', now())->with(['book', 'book.group', 'reserver'])->get();
+            ->where('due_date', '<', now())
+            ->whereHas('book')
+            ->whereHas('book.group')
+            ->whereHas('reserver')
+            ->with(['book.group', 'reserver'])
+            ->get();
 
         return view('with_login_common', compact('data', 'overdueItems'));
     }

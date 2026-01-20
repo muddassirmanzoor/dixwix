@@ -529,7 +529,7 @@
                     <span>Settings</span>
                     <i class="fa fa-chevron-down"></i>
                 </a>
-                <ul class="sub-menu collapse <?= (($data['title'] === "Add Category" || $data['title'] === "Edit Category" || $data['title'] === "View All Categories" || $data['title'] === "Stripe Invoice Scheduler") ? "show" : "") ?>" id="settings_sub_menu">
+                <ul class="sub-menu collapse <?= (($data['title'] === "Home Page" || $data['title'] === "Add Category" || $data['title'] === "Edit Category" || $data['title'] === "View All Categories" || $data['title'] === "Stripe Invoice Scheduler" || $data['title'] === "Group Delete Days") ? "show" : "") ?>" id="settings_sub_menu">
                     <li>
                         <a href="<?= route('home-page') ?>" <?= ($data['title'] === "Add Category" || $data['title'] === "Edit Category" ? 'class="nav-link active" aria-current="page"' : 'class="nav-link"') ?>>
                             <span>Home Page <?= ($data['title'] === "Add Category" || $data['title'] === "Edit Category" ? '<i class="fa fa-solid fa-angle-right"></i>' : '') ?></span>
@@ -564,6 +564,11 @@
                         </a>
                    </li>
                    <?php } ?>
+                   <li>
+                        <a href="<?= route('settings.group-delete') ?>" <?= ($data['title'] === "Group Delete Days" ? 'class="nav-link active" aria-current="page"' : 'class="nav-link"') ?>>
+                            <span>Group Delete Days <?= ($data['title'] === "Group Delete Days" ? '<i class="fa fa-solid fa-angle-right"></i>' : '') ?></span>
+                        </a>
+                   </li>
                 </ul>
             </li>
             @endif

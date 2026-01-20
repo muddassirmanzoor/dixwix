@@ -118,21 +118,29 @@
                         </h3>
                         <select class="form-control selectpicker allinput" id="locations" name="group[locations][]" multiple>
                             @php
-                            $isFirstOption = true;
-                            foreach ($userGroupLocations as $location) :
-                                $selected = "";
+                                $isFirstOption = true;
+                                $locationsArray = [];
+
                                 if ($mode == "edit" && !empty($group)) {
                                     $locationsArray = is_string($group['locations'])
                                         ? json_decode($group['locations'], true)
                                         : (is_array($group['locations']) ? $group['locations'] : []);
-                                    $selected = in_array($location, $locationsArray) ? 'selected' : '';
-                                } elseif ($isFirstOption) {
-                                    $selected = 'selected';
+                                    $locationsArray = is_array($locationsArray) ? $locationsArray : [];
                                 }
-                                $isFirstOption = false;
+                            @endphp
+
+                            @foreach ($userGroupLocations as $location)
+                                @php
+                                    $selected = "";
+                                    if ($mode == "edit" && !empty($locationsArray)) {
+                                        $selected = in_array($location, $locationsArray) ? 'selected' : '';
+                                    } elseif ($isFirstOption) {
+                                        $selected = 'selected';
+                                    }
+                                    $isFirstOption = false;
                                 @endphp
-                            <option value="{{ $location }}" {{ $selected }}>{{ $location }}</option>
-                            <?php endforeach; ?>
+                                <option value="{{ $location }}" {{ $selected }}>{{ $location }}</option>
+                            @endforeach
                         </select>
                         <div class="input-group mt-3">
                             <input type="text" class="form-control" id="new_location" placeholder="Add a new group location" />
@@ -221,6 +229,37 @@
         });
 
     });
+
+    // Ensure group deletion works on this page too (script_file = add_item).
+    if (typeof deleteGroup !== 'function') {
+        function deleteGroup(group_id, url_val) {
+            jQuery.ajax({
+                type: 'DELETE',
+                url: url_val,
+                data: {
+                    "_token": "<?= csrf_token() ?>",
+                    "group_id": group_id
+                },
+                success: function(result) {
+                    let payload = result;
+                    try {
+                        if (typeof result === 'string') {
+                            payload = JSON.parse(result);
+                        }
+                    } catch (e) {
+                        payload = null;
+                    }
+
+                    if (payload && payload.redirect_url) {
+                        window.location.href = payload.redirect_url;
+                        return;
+                    }
+
+                    window.location.reload();
+                }
+            });
+        }
+    }
 
    $(document).ready(function () {
     let userGroupLocations = @json($userGroupLocations);

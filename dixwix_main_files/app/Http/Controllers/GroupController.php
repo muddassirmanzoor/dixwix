@@ -1025,11 +1025,49 @@ class GroupController extends Controller
 
     public function DeleteGroup(Request $request)
     {
-        $group_id                = $request->input('group_id');
-        $group                   = Group::find($group_id);
-        $group->to_be_deleted_at = date("Y-m-d", strtotime('+90 days'));
+        $group_id = $request->input('group_id');
+
+        /** @var \App\Models\Group|null $group */
+        $group = Group::find($group_id);
+        if (!$group) {
+            return json_encode(["success" => false, "message" => "Group not found."]);
+        }
+
+        $user = auth()->user();
+        $isAdmin = $user && $user->hasRole('admin');
+
+        // Only group owner or admin can delete.
+        if (!$isAdmin && (int) $group->created_by !== (int) auth()->id()) {
+            return json_encode(["success" => false, "message" => "Unauthorized."]);
+        }
+
+        // Admin can delete illegal groups immediately (no waiting period).
+        if ($isAdmin) {
+            $group->delete(); // soft-delete
+            return json_encode([
+                "success" => true,
+                "deleted_now" => true,
+                "redirect_url" => route('all-groups'),
+                "message" => "Group deleted successfully.",
+            ]);
+        }
+
+        // Non-admin deletion is delayed by configured days (default: 90).
+        $settingVal = getSetting('group_delete_days');
+        $deleteDays = is_numeric($settingVal) ? (int) $settingVal : 90;
+        if ($deleteDays < 0) {
+            $deleteDays = 90;
+        }
+
+        $group->to_be_deleted_at = Carbon::now()->addDays($deleteDays)->toDateString();
         $group->save();
-        return json_encode(["success" => true, "message" => "Group Will be deleted in 90 Days From now."]);
+
+        return json_encode([
+            "success" => true,
+            "deleted_now" => false,
+            "to_be_deleted_at" => $group->to_be_deleted_at,
+            "message" => "Group will be deleted in {$deleteDays} days from now.",
+        ]);
     }
 
     /*public function InviteUser(Request $request)
