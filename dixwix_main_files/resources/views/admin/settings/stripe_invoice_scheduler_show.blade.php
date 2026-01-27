@@ -61,10 +61,12 @@
     </div>
 </div>
 
-@if(isset($previewData) && $previewData)
+{{-- Preview Table: Only show for schedules that haven't completed yet --}}
+@if(isset($previewData) && $previewData && !in_array($schedule->status, ['completed', 'failed']))
 <div class="card mt-4 border-info">
     <div class="card-header bg-info text-white">
-        <h5 class="mb-0">📋 Preview: Entries That Will Be Pushed @if($isParentSchedule)in Next Cron Run @else in This Cron Run @endif</h5>
+        <h5 class="mb-0">📋 Preview Table: Uninvoiced Entries That Will Be Processed @if($isParentSchedule)in Next Cron Run @else (if schedule runs now) @endif</h5>
+        <p class="mb-0 mt-1 small"><strong>Note:</strong> This shows rental entries that have NOT been invoiced yet and will be processed when the cron runs.</p>
     </div>
     <div class="card-body">
         <div class="mb-3">
@@ -76,13 +78,19 @@
             <p class="mb-1"><strong>Date Range:</strong> {{ $previewData['range_from']->format('Y-m-d') }} to {{ $previewData['range_to']->format('Y-m-d') }} (last {{ $previewData['recurring_days'] }} days)</p>
             <p class="mb-1"><strong>Total Users:</strong> {{ $previewData['total_users'] }} <span class="text-muted">(Each user will receive ONE consolidated invoice)</span></p>
             <p class="mb-1"><strong>Total Entries:</strong> {{ $previewData['total_entries'] }} <span class="text-muted">(Multiple entries per user will be summed)</span></p>
-            <p class="mb-0"><strong>Total Amount:</strong> 
-                Rental: ${{ number_format($previewData['total_rental'], 2) }} + 
-                Commission: ${{ number_format($previewData['total_commission'], 2) }} = 
-                <strong>${{ number_format($previewData['total_rental'] + $previewData['total_commission'], 2) }}</strong>
+            <p class="mb-0"><strong>Amount charged to users (rental only):</strong> 
+                <strong>${{ number_format($previewData['total_rental'], 2) }}</strong>
+                <span class="text-muted"> — Commission ${{ number_format($previewData['total_commission'], 2) }} retained by platform (Dixwix)</span>
             </p>
             <div class="alert alert-info mt-2 mb-0">
-                <small><strong>Note:</strong> If a user has multiple entries (e.g., 2 entries), they will be <strong>automatically summed together</strong> and sent as <strong>ONE invoice</strong> to Stripe. The "Entry Count" column shows how many entries will be consolidated for each user.</small>
+                <small>
+                    <strong>What is this Preview Table?</strong><br>
+                    • This shows <strong>uninvoiced rental entries</strong> that will be processed when the cron runs<br>
+                    • These entries have NOT been sent to Stripe yet<br>
+                    • If a user has multiple entries, they will be <strong>automatically summed together</strong> and sent as <strong>ONE invoice</strong> to Stripe<br>
+                    • The "Entry Count" column shows how many entries will be consolidated for each user<br>
+                    • <strong>Different from Results Table below:</strong> Results show invoices that were already created and sent
+                </small>
             </div>
         </div>
 
@@ -95,8 +103,8 @@
                         <th>Email</th>
                         <th>Entry Count<br><small class="text-muted">(Will be summed)</small></th>
                         <th>Rental Total<br><small class="text-muted">(Sum of all entries)</small></th>
-                        <th>Commission<br><small class="text-muted">(Sum of all commissions)</small></th>
-                        <th>Invoice Total<br><small class="text-muted">(ONE invoice per user)</small></th>
+                        <th>Commission (→ platform)<br><small class="text-muted">(Deducted, goes to Dixwix)</small></th>
+                        <th>Amount charged<br><small class="text-muted">(Rental - Commission, ONE invoice per user)</small></th>
                         <th>Stripe Customer ID</th>
                     </tr>
                 </thead>
@@ -216,9 +224,18 @@
 @if(in_array($schedule->status, ['completed', 'failed']) && $schedule->items->count() > 0)
 <div class="card mt-4 border-success">
     <div class="card-header bg-success text-white">
-        <h5 class="mb-0">✅ Run Results - All Users & Entries Pushed</h5>
+        <h5 class="mb-0">✅ Completed Results Table: Invoices Already Created & Sent</h5>
+        <p class="mb-0 mt-1 small"><strong>What is this Results Table?</strong> This shows invoices that were <strong>already created and sent to Stripe</strong>. These entries are already invoiced and won't appear in the Preview table above.</p>
     </div>
     <div class="card-body">
+        <div class="alert alert-success mb-3">
+            <small>
+                <strong>Key Difference:</strong><br>
+                • <strong>Preview Table (above):</strong> Shows uninvoiced entries that WILL be processed<br>
+                • <strong>Results Table (this one):</strong> Shows invoices that WERE already processed and sent to Stripe<br>
+                • Once an entry is invoiced, it moves from Preview to Results and won't appear in Preview again
+            </small>
+        </div>
         @if($schedule->items->count() > 0)
         <div class="table-responsive">
             <table class="table table-sm table-bordered">
@@ -227,8 +244,8 @@
                         <th>User</th>
                         <th>Email</th>
                         <th>Rental</th>
-                        <th>Commission</th>
-                        <th>Total</th>
+                        <th>Commission (→ platform)</th>
+                        <th>Amount charged</th>
                         <th>Stripe Invoice ID</th>
                         <th>Status</th>
                         <th>Error</th>
@@ -295,10 +312,11 @@
                                                 </tr>
                                                 @endforeach
                                                 <tr class="table-info">
-                                                    <th colspan="2">TOTAL</th>
+                                                    <th>TOTAL</th>
                                                     <th>${{ number_format($userEntries->sum('amount'), 2) }}</th>
                                                     <th>${{ number_format($userEntries->sum('system_fee'), 2) }}</th>
-                                                    <th><strong>${{ number_format($userEntries->sum('amount') + $userEntries->sum('system_fee'), 2) }}</strong></th>
+                                                    <th><strong>${{ number_format($userEntries->sum('amount') - $userEntries->sum('system_fee'), 2) }}</strong><br><small class="text-muted">(Charged: Rental - Commission)</small></th>
+                                                    <th></th>
                                                 </tr>
                                             </tbody>
                                         </table>

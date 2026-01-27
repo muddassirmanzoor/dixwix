@@ -162,8 +162,9 @@ class RunStripeInvoiceSchedules extends Command
                     // Fallback: calculate commission using DB percentage if system_fee wasn't stored
                     $commission = ($subtotal * $commissionPercent) / 100;
                 }
-                
-                $total = $subtotal + $commission;
+                // Commission is DEDUCTED from renter's charge. Renter pays (rental - commission);
+                // commission goes to admin (Dixwix) platform balance.
+                $total = $subtotal - $commission; // Amount charged to renter = rental minus commission
 
                 $item = StripeInvoiceScheduleItem::firstOrCreate(
                     ['schedule_id' => $runSchedule->id, 'user_id' => $userId], // Use runSchedule, not parent schedule
@@ -226,17 +227,22 @@ class RunStripeInvoiceSchedules extends Command
                         continue;
                     }
 
+                    // Commission is DEDUCTED from renter's charge. Charge renter (rental - commission);
+                    // commission goes to Dixwix platform balance.
                     $invoice = $stripeService->createFinalizeAndSendInvoice([
                         'customer_id' => $user->stripe_customer_id,
                         'currency' => 'usd',
-                        'rental_amount' => $subtotal,
-                        'commission_amount' => $commission,
-                        'description' => 'Scheduled rental invoice',
+                        'rental_amount' => $total, // Net amount after commission deduction
+                        'commission_amount' => 0, // Commission is deducted, not added as separate line
+                        'description' => 'Scheduled rental invoice (commission deducted)',
                         'metadata' => [
                             'schedule_id' => (string) $schedule->id,
                             'user_id' => (string) $user->id,
                             'range_from' => $rangeFrom->toIso8601String(),
                             'range_to' => $rangeTo->toIso8601String(),
+                            'rental_amount' => (string) round($subtotal, 2),
+                            'commission_deducted' => (string) round($commission, 2),
+                            'net_amount_charged' => (string) round($total, 2),
                         ],
                     ]);
 
@@ -251,7 +257,7 @@ class RunStripeInvoiceSchedules extends Command
                         'status' => 'completed',
                     ]);
                     $sent++;
-                    $this->info("✓ Invoice sent for user #{$userId}: Rental=\$" . number_format($subtotal, 2) . " + Commission=\$" . number_format($commission, 2) . " = Total=\$" . number_format($total, 2) . " (Stripe ID: {$invoice->id})");
+                    $this->info("✓ Invoice sent for user #{$userId}: Rental=\$" . number_format($subtotal, 2) . " - Commission=\$" . number_format($commission, 2) . " = Charged=\$" . number_format($total, 2) . " (commission → platform) (Stripe ID: {$invoice->id})");
                 } catch (\Throwable $e) {
                     Log::error('Stripe invoice schedule item failed', [
                         'schedule_id' => $schedule->id,

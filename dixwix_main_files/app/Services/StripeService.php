@@ -406,12 +406,15 @@ public function getCustomerBalance($customerId)
 
   /**
    * Create, finalize and send a Stripe Invoice for a customer.
+   * Commission is the platform's share and must not be added as a line item when
+   * it should stay in Dixwix balance; pass commission_amount => 0 and put platform
+   * commission in metadata if needed.
    *
    * @param array $params
    *  - customer_id (string) Stripe customer id
    *  - currency (string) default 'usd'
    *  - rental_amount (float) total rental amount (in dollars)
-   *  - commission_amount (float) optional commission (in dollars)
+   *  - commission_amount (float) optional; if 0, only rental is charged (commission retained by platform)
    *  - description (string) invoice description (appears in Stripe)
    *  - metadata (array) key/value
    */

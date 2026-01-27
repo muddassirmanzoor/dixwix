@@ -63,22 +63,23 @@ class StripeInvoiceScheduleController extends Controller
         $activeSchedule = null;
         
         if ($isParentSchedule) {
-            // Parent schedule: show preview for next run (if active)
+            // Parent schedule: show preview for next run (if active and not completed)
             // Don't show logs - instead show the run schedules that were created
             $logs = collect(); // Don't show old logs
             $activeSchedule = ($schedule->is_active && $schedule->status === 'active') ? $schedule : ($schedule->activeRun ?? null);
-            $previewData = $activeSchedule ? $this->getNextRunPreview($activeSchedule) : null;
+            // Only show preview if schedule is active and not completed/failed
+            $previewData = ($activeSchedule && !in_array($activeSchedule->status, ['completed', 'failed'])) ? $this->getNextRunPreview($activeSchedule) : null;
             
             // Get all run schedules (child schedules) for this parent
             $runSchedules = $schedule->runs()->orderByDesc('run_at')->get();
         } else {
-            // Run schedule: show preview if pending/running, details if completed
+            // Run schedule: show preview ONLY if pending/running/active, NOT if completed/failed
             $logs = collect(); // No logs for individual runs
             $runSchedules = collect(); // No child runs for run schedules
             $previewData = null;
             
-            // If status is pending, running, or active, show preview
-            if (in_array($schedule->status, ['pending', 'running', 'active'])) {
+            // Only show preview for schedules that haven't completed yet
+            if (in_array($schedule->status, ['pending', 'running', 'active']) && !in_array($schedule->status, ['completed', 'failed'])) {
                 $previewData = $this->getSchedulePreview($schedule);
             }
         }
@@ -169,7 +170,8 @@ class StripeInvoiceScheduleController extends Controller
                 $subtotal = (float) $row->subtotal_amount;
                 $storedCommission = (float) ($row->commission_amount ?? 0);
                 $commission = $storedCommission > 0 ? $storedCommission : (($subtotal * $commissionPercent) / 100);
-                $total = $subtotal + $commission;
+                // Commission is DEDUCTED from renter's charge. Amount charged = rental - commission
+                $total = $subtotal - $commission;
 
                 $user = \App\Models\User::find($userId);
                 
