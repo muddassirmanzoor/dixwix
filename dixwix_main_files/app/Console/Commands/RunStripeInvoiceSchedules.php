@@ -256,6 +256,53 @@ class RunStripeInvoiceSchedules extends Command
                         'stripe_invoice_id' => $invoice->id ?? null,
                         'status' => 'completed',
                     ]);
+                    
+                    // Record commission for admin (user_id = 1)
+                    $admin = User::find(1);
+                    if ($admin && $commission > 0) {
+                        $commissionPoints = $commission * 100; // Convert to points (1 point = $0.01)
+                        
+                        // Create Point record for admin commission
+                        Point::create([
+                            'user_id' => $admin->id,
+                            'through_user_id' => $userId,
+                            'type' => 'credit',
+                            'points' => $commissionPoints,
+                            'amount' => $commission,
+                            'system_fee' => 0, // This IS the commission, not a fee on commission
+                            'description' => "Rental commission from user #{$userId} (Invoice: {$invoice->id})",
+                            'trans_type' => Point::TRANS_TYPE_REWARD,
+                            'stripe_invoice_schedule_id' => $runSchedule->id,
+                            'stripe_invoice_id' => $invoice->id,
+                        ]);
+                        
+                        // Update admin's reward balance
+                        $admin->reward_balance += $commissionPoints;
+                        $admin->save();
+                        
+                        // Transfer commission to admin's Stripe account if they have one
+                        if ($admin->stripe_customer_id) {
+                            try {
+                                $stripeService->addCreditToCustomer(
+                                    $admin->stripe_customer_id,
+                                    $commission,
+                                    'usd',
+                                    "Rental commission from user #{$userId} (Invoice: {$invoice->id})"
+                                );
+                                $this->info("  → Commission \${$commission} transferred to admin Stripe account");
+                            } catch (\Throwable $e) {
+                                Log::warning('Failed to transfer commission to admin Stripe account', [
+                                    'admin_id' => $admin->id,
+                                    'commission' => $commission,
+                                    'error' => $e->getMessage(),
+                                ]);
+                                // Don't fail the whole process if Stripe transfer fails
+                            }
+                        } else {
+                            $this->warn("  → Admin has no Stripe customer ID - commission recorded in system only");
+                        }
+                    }
+                    
                     $sent++;
                     $this->info("✓ Invoice sent for user #{$userId}: Rental=\$" . number_format($subtotal, 2) . " - Commission=\$" . number_format($commission, 2) . " = Charged=\$" . number_format($total, 2) . " (commission → platform) (Stripe ID: {$invoice->id})");
                 } catch (\Throwable $e) {

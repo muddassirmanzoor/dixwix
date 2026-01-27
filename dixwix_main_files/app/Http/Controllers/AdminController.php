@@ -579,9 +579,16 @@ class AdminController extends Controller
             'title' => 'Site Commission History',
             'template' => 'admin.site_commission.site_commission_history',
         ];
+        // Show all commission records for admin (user_id = 1)
+        // Filter for credit transactions that are commission-related
         $earn_points = Point::where("user_id", Auth::user()->id)
-            // ->whereNull('package_id')
-            // ->where('type','credit')
+            ->where('type', 'credit')
+            ->where(function($query) {
+                $query->where('description', 'like', '%commission%')
+                      ->orWhere('description', 'like', '%Rental commission%')
+                      ->orWhere('description', 'like', '%Points transfer commission%')
+                      ->orWhere('description', 'like', '%Admin commission%');
+            })
             ->orderBy('id', 'desc')
             ->paginate(10);
 
