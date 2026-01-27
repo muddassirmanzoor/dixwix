@@ -338,22 +338,23 @@ public function getCustomerBalance($customerId)
 }
   
   
- public function addCreditToCustomer($customerId, $amount, $currency = 'usd', $description = 'Credit added')
+ public function addCreditToCustomer($customerId,$amount,$currency)
   {
+
       try {
           $transaction = \Stripe\Customer::createBalanceTransaction(
               $customerId,
               [
                   'amount' => $amount * 100, // Stripe expects cents
-                  'currency' => $currency,
-                  'description' => $description,
+                  'currency' => 'usd',
+                  'description' => 'Manual test credit',
               ]
           );
 
-          return $transaction;
+          return json_encode($transaction);
       } catch (\Exception $e) {
           \Log::error("Stripe Balance Error: " . $e->getMessage());
-          throw new \Exception('Failed to add credit to Stripe customer: ' . $e->getMessage());
+          return back()->with('error', 'Failed to add credit: ' . $e->getMessage());
       }
   }
   public function getReceipt($chargeId)

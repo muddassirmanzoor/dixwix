@@ -175,13 +175,13 @@
                             <thead>
                                 <tr>
                                     <th scope="col">S.No</th>
-                                    <th scope="col">Source User</th>
+                                    <th scope="col">User</th>
                                     <th scope="col">Type</th>
-                                    <th scope="col">Commission (Points)</th>
-                                    <th scope="col">Commission Amount ($)</th>
+                                    <th scope="col">Total Coins</th>
+                                    <th scope="col">Commission Coins</th>
+                                    <th scope="col">Commission Amount</th>
                                     <th scope="col">Description</th>
-                                    <th scope="col">Stripe Invoice ID</th>
-                                    <th scope="col">Date</th>
+                                    <th scope="col">Action At</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -189,21 +189,13 @@
                                 @foreach($earn_points as $index => $point)
                                 <tr>
                                     <td>{{  $earn_points->firstItem() + $index }} </td>
-                                    <td>{{ ucfirst($point?->throughUser?->name ?? 'N/A') }}</td>
+                                    <td>{{ ucfirst($point?->user?->name) }}</td>
                                     <td>{{ ucfirst($point->type) }}</td>
-                                    <td>{{ number_format($point->points ?? 0) }}</td>
-                                    <td>${{ number_format($point->amount ?? 0, 2) }}</td>
+                                    <td>{{ $point->total_coins }}</td>
+                                    <td>{{ $point->points }}</td>
+                                    <td>{{ $point->amount }}</td>
                                     <td>{{ $point->description }}</td>
-                                    <td>
-                                        @if($point->stripe_invoice_id)
-                                            <a href="https://dashboard.stripe.com/invoices/{{ $point->stripe_invoice_id }}" target="_blank" class="text-primary">
-                                                {{ substr($point->stripe_invoice_id, 0, 20) }}...
-                                            </a>
-                                        @else
-                                            <span class="text-muted">N/A</span>
-                                        @endif
-                                    </td>
-                                    <td>{{ $point->created_at->format('Y-m-d H:i:s') }}</td>
+                                    <td>{{ $point->created_at }}</td>
                                 </tr>
                                 <?php  $sno += 1; ?>
                                 @endforeach
