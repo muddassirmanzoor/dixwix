@@ -111,6 +111,33 @@ class StripeInvoiceScheduleController extends Controller
             }
             
             $entriesByUser = $entries->groupBy('user_id');
+            
+            // Get admin commission points for this schedule
+            $adminCommissions = \App\Models\Point::where('user_id', 1) // Admin user ID
+                ->where('type', 'credit')
+                ->where('description', 'like', '%Rental commission%')
+                ->where('description', 'like', '%Schedule #' . $schedule->id . '%')
+                ->with('throughUser')
+                ->orderBy('created_at', 'desc')
+                ->get();
+            
+            // If no commissions found with exact schedule ID, try to find by invoice IDs from schedule items
+            if ($adminCommissions->isEmpty() && $schedule->items->count() > 0) {
+                $invoiceIds = $schedule->items->pluck('stripe_invoice_id')->filter();
+                if ($invoiceIds->isNotEmpty()) {
+                    $adminCommissions = \App\Models\Point::where('user_id', 1)
+                        ->where('type', 'credit')
+                        ->where('description', 'like', '%Rental commission%')
+                        ->where(function($q) use ($invoiceIds) {
+                            foreach ($invoiceIds as $invoiceId) {
+                                $q->orWhere('description', 'like', '%Invoice: ' . $invoiceId . '%');
+                            }
+                        })
+                        ->with('throughUser')
+                        ->orderBy('created_at', 'desc')
+                        ->get();
+                }
+            }
         } elseif (!$isParentSchedule && $schedule->range_from && $schedule->range_to) {
             // For pending/running schedules, get entries that will be processed
             $entries = \App\Models\Point::where('stripe_invoice_schedule_id', $schedule->id)
@@ -121,9 +148,16 @@ class StripeInvoiceScheduleController extends Controller
                 ->get();
             
             $entriesByUser = $entries->groupBy('user_id');
+            $adminCommissions = collect(); // No admin commissions for pending schedules
+        } else {
+            $adminCommissions = collect();
         }
 
-        return view('with_login_common', compact('data', 'schedule', 'logs', 'previewData', 'entriesByUser', 'isParentSchedule', 'runSchedules', 'activeSchedule'));
+        // Calculate total admin commission for this schedule
+        $totalAdminCommission = $adminCommissions->sum('amount');
+        $adminCommissionCount = $adminCommissions->count();
+
+        return view('with_login_common', compact('data', 'schedule', 'logs', 'previewData', 'entriesByUser', 'isParentSchedule', 'runSchedules', 'activeSchedule', 'adminCommissions', 'totalAdminCommission', 'adminCommissionCount'));
     }
 
     private function getSchedulePreview(StripeInvoiceSchedule $schedule)

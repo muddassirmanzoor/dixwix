@@ -327,6 +327,73 @@
                     </tr>
                     @endif
                     @endforeach
+                    {{-- Admin Commission Row --}}
+                    @if(isset($totalAdminCommission) && $totalAdminCommission > 0)
+                    <tr class="table-warning">
+                        <td>
+                            <strong>Admin (Dixwix)</strong>
+                            @if(isset($adminCommissionCount) && $adminCommissionCount > 1)
+                                <br><small class="text-muted">({{ $adminCommissionCount }} commission transactions)</small>
+                            @endif
+                        </td>
+                        <td>{{ \App\Models\User::find(1)->email ?? 'admin@gmail.com' }}</td>
+                        <td>-</td>
+                        <td><strong>${{ number_format($totalAdminCommission, 2) }}</strong></td>
+                        <td><strong>${{ number_format($totalAdminCommission, 2) }}</strong><br><small class="text-muted">(Commission received)</small></td>
+                        <td><span class="badge bg-info">Commission Credit</span></td>
+                        <td>
+                            <span class="badge bg-success">Completed</span>
+                        </td>
+                        <td>-</td>
+                        <td>
+                            @if(isset($adminCommissions) && $adminCommissions->count() > 0)
+                                <a href="#adminCommissions{{ $schedule->id }}" class="btn btn-sm btn-outline-warning" id="toggleAdminCommissions{{ $schedule->id }}" role="button">
+                                    View ({{ $adminCommissions->count() }})
+                                </a>
+                            @endif
+                        </td>
+                    </tr>
+                    @if(isset($adminCommissions) && $adminCommissions->count() > 0)
+                    <tr>
+                        <td colspan="9" class="p-0 border-0">
+                            <div class="collapse" id="adminCommissions{{ $schedule->id }}">
+                                <div class="card card-body bg-warning bg-opacity-10 m-2">
+                                    <h6 class="mb-2">Admin Commission Details</h6>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-bordered mb-0">
+                                            <thead>
+                                                <tr>
+                                                    <th>Point ID</th>
+                                                    <th>From User</th>
+                                                    <th>Commission Amount</th>
+                                                    <th>Description</th>
+                                                    <th>Created At</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach($adminCommissions as $commission)
+                                                <tr>
+                                                    <td>{{ $commission->id }}</td>
+                                                    <td>{{ $commission->throughUser->name ?? ('User #' . $commission->through_user_id) }}</td>
+                                                    <td>${{ number_format($commission->amount, 2) }}</td>
+                                                    <td>{{ Str::limit($commission->description, 80) }}</td>
+                                                    <td>{{ $commission->created_at->format('Y-m-d H:i:s') }}</td>
+                                                </tr>
+                                                @endforeach
+                                                <tr class="table-warning">
+                                                    <th colspan="2">TOTAL</th>
+                                                    <th>${{ number_format($totalAdminCommission, 2) }}</th>
+                                                    <th colspan="2"></th>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    @endif
+                    @endif
                 </tbody>
             </table>
         </div>

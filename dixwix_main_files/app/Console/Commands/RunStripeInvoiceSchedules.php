@@ -252,12 +252,77 @@ class RunStripeInvoiceSchedules extends Command
                         'stripe_invoiced_at' => now(),
                     ]);
 
+                    // Transfer commission to admin (Dixwix) - both in system and Stripe
+                    $admin = User::find(1); // Admin user
+                    if ($admin && $commission > 0) {
+                        try {
+                            // 1. Add commission to admin's reward_balance in system
+                            $adminCommissionPoints = $commission * 100; // Convert to points (1 point = $0.01)
+                            $admin->reward_balance = $admin->reward_balance + $adminCommissionPoints;
+                            $admin->save();
+
+                            // 2. Create Point record for admin showing commission received
+                            Point::create([
+                                'user_id' => $admin->id,
+                                'through_user_id' => $userId,
+                                'type' => 'credit',
+                                'points' => $adminCommissionPoints,
+                                'amount' => $commission,
+                                'system_fee' => 0,
+                                'description' => "Rental commission from user #{$userId} (Schedule #{$schedule->id}, Invoice: {$invoice->id})",
+                                'trans_type' => Point::TRANS_TYPE_REWARD,
+                            ]);
+
+                            // 3. Add commission to admin's Stripe balance
+                            if ($admin->stripe_customer_id) {
+                                try {
+                                    $stripeService->addCreditToCustomer(
+                                        $admin->stripe_customer_id,
+                                        $commission,
+                                        'usd',
+                                        "Rental commission from user #{$userId} (Schedule #{$schedule->id})"
+                                    );
+                                    $this->info("  → Commission \$" . number_format($commission, 2) . " added to admin Stripe balance");
+                                } catch (\Throwable $stripeError) {
+                                    Log::warning('Failed to add commission to admin Stripe balance', [
+                                        'admin_id' => $admin->id,
+                                        'commission' => $commission,
+                                        'error' => $stripeError->getMessage(),
+                                    ]);
+                                    $this->warn("  ⚠ Could not add commission to admin Stripe balance: " . $stripeError->getMessage());
+                                }
+                            } else {
+                                $this->warn("  ⚠ Admin has no Stripe customer ID - commission added to system balance only");
+                            }
+
+                            // 4. Update admin's Stripe cash balance metadata
+                            if ($admin->stripe_customer_id) {
+                                try {
+                                    \App\Jobs\UpdateStripeCashBalance::dispatch($admin);
+                                } catch (\Throwable $jobError) {
+                                    Log::warning('Failed to dispatch UpdateStripeCashBalance job', [
+                                        'admin_id' => $admin->id,
+                                        'error' => $jobError->getMessage(),
+                                    ]);
+                                }
+                            }
+                        } catch (\Throwable $adminError) {
+                            Log::error('Failed to process admin commission', [
+                                'admin_id' => $admin->id ?? null,
+                                'commission' => $commission,
+                                'user_id' => $userId,
+                                'error' => $adminError->getMessage(),
+                            ]);
+                            $this->warn("  ⚠ Failed to process admin commission: " . $adminError->getMessage());
+                        }
+                    }
+
                     $item->update([
                         'stripe_invoice_id' => $invoice->id ?? null,
                         'status' => 'completed',
                     ]);
                     $sent++;
-                    $this->info("✓ Invoice sent for user #{$userId}: Rental=\$" . number_format($subtotal, 2) . " - Commission=\$" . number_format($commission, 2) . " = Charged=\$" . number_format($total, 2) . " (commission → platform) (Stripe ID: {$invoice->id})");
+                    $this->info("✓ Invoice sent for user #{$userId}: Rental=\$" . number_format($subtotal, 2) . " - Commission=\$" . number_format($commission, 2) . " = Charged=\$" . number_format($total, 2) . " (commission → admin) (Stripe ID: {$invoice->id})");
                 } catch (\Throwable $e) {
                     Log::error('Stripe invoice schedule item failed', [
                         'schedule_id' => $schedule->id,
